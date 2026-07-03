@@ -1,0 +1,8 @@
+Flask
+Flask-WTF
+requests
+dnspython
+python-whois
+ipwhois
+python-dotenv
+scapy

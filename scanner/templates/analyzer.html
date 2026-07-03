@@ -1,0 +1,100 @@
+{% extends "base.html" %} {% block content %}
+<div class="container">
+  <h1 class="mb-4">Live Network Traffic Analyzer</h1>
+
+  <div class="input-group mb-3">
+    <input
+      type="text"
+      id="filter-input"
+      class="form-control"
+      placeholder="Enter IP or domain to filter traffic..."
+    />
+    <button class="btn btn-primary" id="set-filter-btn">Set Filter</button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-dark table-hover table-sm">
+      <thead>
+        <tr>
+          <th scope="col">Timestamp</th>
+          <th scope="col">Protocol</th>
+          <th scope="col">Source</th>
+          <th scope="col">Destination</th>
+          <th scope="col">Details</th>
+        </tr>
+      </thead>
+      <tbody id="traffic-table-body"></tbody>
+    </table>
+  </div>
+  <div id="loading-message" class="text-center text-muted">
+    <p>Listening for network traffic...</p>
+  </div>
+</div>
+
+<script>
+  const trafficTableBody = document.getElementById("traffic-table-body");
+  const loadingMessage = document.getElementById("loading-message");
+  const filterInput = document.getElementById("filter-input");
+  const setFilterBtn = document.getElementById("set-filter-btn");
+
+  let currentFilter = ""; // Variable to hold the current filter
+
+  // Event listener for the "Set Filter" button
+  setFilterBtn.addEventListener("click", () => {
+    currentFilter = filterInput.value.trim();
+    // Immediately fetch traffic with the new filter
+    fetchTraffic();
+  });
+
+  function createTableRow(logLine) {
+    // (This function remains the same as before)
+    const regex = /\[(.*?)\]\s(.*?):\s(.*?)\s->\s(.*?)\s(?:\[(.*)\])?/;
+    const match = logLine.match(regex);
+    if (!match) return null;
+    const [_, timestamp, protocol, source, destination, details = ""] = match;
+    const row = document.createElement("tr");
+    if (protocol === "TCP") row.className = "table-info";
+    else if (protocol === "UDP") row.className = "table-success";
+    else if (protocol === "ICMP") row.className = "table-warning";
+    row.innerHTML = `<td>${timestamp}</td><td>${protocol}</td><td>${source}</td><td>${destination}</td><td>${details}</td>`;
+    return row;
+  }
+
+  async function fetchTraffic() {
+    try {
+      // Add the filter to the request URL
+      const response = await fetch(
+        `/get_traffic?filter=${encodeURIComponent(currentFilter)}`
+      );
+      const data = await response.json();
+
+      trafficTableBody.innerHTML = "";
+
+      if (
+        data.traffic &&
+        data.traffic.trim() !== "" &&
+        !data.traffic.startsWith("Traffic log not found")
+      ) {
+        loadingMessage.style.display = "none";
+        const lines = data.traffic.split("\n");
+        lines.forEach((line) => {
+          if (line.trim() !== "") {
+            const tableRow = createTableRow(line);
+            if (tableRow) {
+              trafficTableBody.appendChild(tableRow);
+            }
+          }
+        });
+      } else {
+        loadingMessage.style.display = "block";
+      }
+    } catch (error) {
+      console.error("Error fetching traffic:", error);
+    }
+  }
+
+  // Initial fetch and then refresh every 3 seconds
+  fetchTraffic();
+  setInterval(fetchTraffic, 3000);
+</script>
+{% endblock %}
